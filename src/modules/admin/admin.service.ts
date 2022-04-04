@@ -1,35 +1,24 @@
-import { getCustomRepository } from 'typeorm'
-import TokenRepository from '../../databases/repository/token.repository'
-import UserRepository from '../../databases/repository/user.repository'
 import { TokenListRequest, UserListRequest } from './admin.request'
+import db from '../../config/typeorm.config'
+import UserEntity from '../../mysql/entity/user.entity'
+import TokenEntity from '../../mysql/entity/token.entity'
 
 export default class AdminService {
-	public userRepository: UserRepository
+    async userList(req: UserListRequest) {
+        // const result = await db.getRepository(UserEntity).find({
+        //     take: req.limit,
+        //     skip: req.limit * req.page,
+        //     order: req.order,
+        // })
+        // return result
+    }
 
-	public tokenRepository: TokenRepository
-
-	constructor() {
-		this.userRepository = getCustomRepository(UserRepository)
-		this.tokenRepository = getCustomRepository(TokenRepository)
-	}
-
-	async userList(req: UserListRequest) {
-		const result = await this.userRepository.find({
-			take: req._limit,
-			skip: req._limit * req._page,
-			...(req._sort ? { order: { [req._sort]: req._order || 'ASC' } } : {}),
-		})
-
-		return result
-	}
-
-	async tokenList(req: TokenListRequest) {
-		const result = await this.tokenRepository.find({
-			take: req._limit,
-			skip: req._limit * req._page,
-			...(req._sort ? { order: { [req._sort]: req._order || 'ASC' } } : {}),
-		})
-
-		return result
-	}
+    async tokenList(req: TokenListRequest) {
+        // const result = await db.getRepository(TokenEntity).find({
+        //     take: req.limit,
+        //     skip: req.limit * req.page,
+        //     order: req.order,
+        // })
+        // return result
+    }
 }

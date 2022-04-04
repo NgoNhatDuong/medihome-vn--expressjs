@@ -1,25 +1,23 @@
-import { Exclude, Expose, Type } from 'class-transformer'
-
-@Exclude()
-class UserInfo {
-	@Expose()
-	userId: number
-
-	@Expose()
-	username: string
-
-	@Expose()
-	email: string
-}
-@Exclude()
 export class AuthResponse {
-	@Expose()
-	accessToken: string
+    accessToken: string
 
-	@Expose()
-	refreshToken: string
+    refreshToken: string
 
-	@Expose()
-	@Type(() => UserInfo)
-	userInfo: UserInfo
+    userInfo: {
+        userId: number
+        username: string
+        email: string
+    }
+
+    public static fromData(data: any) {
+        const instance = new AuthResponse()
+        instance.accessToken = data.accessToken
+        instance.refreshToken = data.refreshToken
+        instance.userInfo = {
+            userId: data.userInfo?.userId,
+            username: data.userInfo?.username,
+            email: data.userInfo?.email,
+        }
+        return instance
+    }
 }

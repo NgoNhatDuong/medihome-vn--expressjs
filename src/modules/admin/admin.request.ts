@@ -1,35 +1,35 @@
-import { Exclude, Expose, Type } from 'class-transformer'
+import { Request } from 'express'
 
-@Exclude()
 export class UserListRequest {
-	@Expose()
-	@Type(() => Number)
-	_page?: number
+    page: number
 
-	@Expose()
-	@Type(() => Number)
-	_limit?: number
+    limit: number
 
-	@Expose()
-	_order?: 'asc' | 'desc'
+    order: Record<string, 'asc' | 'desc'>
 
-	@Expose()
-	_sort?: string
+    public static fromRequest(request: Request) {
+        const ins = new UserListRequest()
+        ins.page = Number(request.body._page) || 1
+        ins.limit = Number(request.body._limit) || 10
+        ins.order = request.body._order || {}
+
+        return ins
+    }
 }
 
-@Exclude()
 export class TokenListRequest {
-	@Expose()
-	@Type(() => Number)
-	_page?: number
+    page: number
 
-	@Expose()
-	@Type(() => Number)
-	_limit?: number
+    limit: number
 
-	@Expose()
-	_order?: 'asc' | 'desc'
+    order: Record<string, 'asc' | 'desc'>
 
-	@Expose()
-	_sort?: string
+    public static fromRequest(request: Request) {
+        const ins = new TokenListRequest()
+        ins.page = Number(request.body._page) || 1
+        ins.limit = Number(request.body._limit) || 10
+        ins.order = request.body._order || {}
+
+        return ins
+    }
 }

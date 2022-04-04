@@ -1,45 +1,188 @@
-import { Exclude, Expose } from 'class-transformer'
-import { IsArray, IsEmail, Length, MinLength, ValidateIf } from 'class-validator'
+import jwt, { JwtPayload } from 'jsonwebtoken'
+import { Request } from 'express'
+import { HttpException } from '../../middleware/error.middleware'
+import Env from '../../config/env.config'
+import ValidateUtils from '../../utils/validate.utils'
 
-@Exclude()
 export class RegisterRequest {
-	@Expose()
-	username: string
+    username: string
 
-	@Expose()
-	@MinLength(6, { message: 'Password is too short' })
-	password: string
+    password: string
 
-	@Expose()
-	@IsEmail({ message: 'Email is invalid' })
-	email: string
+    email: string
 
-	@Expose()
-	@Length(10, 10, { message: 'Phone number requires 10 characters' })
-	phone: string
+    phone: string
+
+    public validate(): void {
+        const message: string[] = []
+        if (!ValidateUtils.isUsername(this.username)) message.push('Username is invalid')
+        if (!ValidateUtils.isGmail(this.email)) message.push('Email must format: *****@gmail.com')
+        if (!ValidateUtils.isPhone(this.phone)) message.push('Phone number must be actual')
+        if (!ValidateUtils.isPassword(this.password)) message.push('Password is invalid')
+
+        if (message.length > 0) {
+            throw new HttpException(409, message.join('. '))
+        }
+    }
+
+    public static fromRequest(request: Request): RegisterRequest {
+        const ins = new RegisterRequest()
+        ins.username = request.body.username
+        ins.password = request.body.password
+        ins.email = request.body.email
+        ins.phone = request.body.phone
+
+        ins.validate()
+        return ins
+    }
 }
 
 export class LoginRequest {
-	@Expose()
-	username: string
+    username: string
 
-	@Expose()
-	@MinLength(6, { message: 'Password is too short' })
-	password: string
+    password: string
+
+    public validate(): void {
+        if (!ValidateUtils.isPassword(this.password))
+            throw new HttpException(409, 'Password is invalid !')
+    }
+
+    public static fromRequest(request: Request): LoginRequest {
+        const ins = new LoginRequest()
+        ins.username = request.body.username
+        ins.password = request.body.password
+        ins.validate()
+        return ins
+    }
 }
 
-@Exclude()
 export class LogoutRequest {
-	@Expose()
-	accessToken: string
+    public accessToken: string
 
-	@Expose()
-	@ValidateIf(o => o.refreshToken !== undefined)
-	@IsArray({ message: 'RefreshToken is array' })
-	refreshToken?: string[]
+    public userId: number
+
+    public validate(): void {
+        try {
+            const decoded = jwt.verify(this.accessToken, Env.jwt.accessKey) as JwtPayload
+            this.userId = decoded.userId
+        } catch (e) {
+            throw new HttpException(401, 'Token is invalid')
+        }
+    }
+
+    public static fromRequest(request: Request) {
+        const ins = new LogoutRequest()
+        ins.accessToken = request.body.accessToken
+        ins.validate()
+        return ins
+    }
 }
-@Exclude()
+
+export class KickoutRequest {
+    public userId: number
+
+    public accessToken: string
+
+    public refreshToken: string[]
+
+    public validate(): void {
+        try {
+            const decoded = jwt.verify(this.accessToken, Env.jwt.accessKey) as JwtPayload
+            this.userId = decoded.userId
+        } catch (e) {
+            throw new HttpException(401, 'Token is invalid')
+        }
+    }
+
+    public static fromRequest(request: Request) {
+        const ins = new KickoutRequest()
+        ins.accessToken = request.body.accessToken
+        ins.refreshToken = request.body.refreshToken || []
+        ins.validate()
+        return ins
+    }
+}
+
 export class RefreshTokenRequest {
-	@Expose()
-	refreshToken: string
+    public userId: number
+
+    public refreshToken: string
+
+    public validate(): void {
+        try {
+            const decoded = jwt.verify(this.refreshToken, Env.jwt.refreshKey) as JwtPayload
+            this.userId = decoded.userId
+        } catch (e) {
+            throw new HttpException(401, 'Token is invalid')
+        }
+    }
+
+    public static fromRequest(request: Request) {
+        const ins = new RefreshTokenRequest()
+        ins.refreshToken = request.body.refreshToken
+        ins.validate()
+        return ins
+    }
+}
+
+export class ForgotPasswordRequest {
+    public email: string
+
+    public validate() {
+        if (!ValidateUtils.isGmail(this.email))
+            throw new HttpException(401, 'Email must format: *****@gmail.com !')
+    }
+
+    public static fromRequest(request: Request) {
+        const ins = new ForgotPasswordRequest()
+        ins.email = request.body.email
+        ins.validate()
+        return ins
+    }
+}
+
+export class ChangePasswordRequest {
+    public username: string
+
+    public oldPassword: string
+
+    public newPassword: string
+
+    public validate() {
+        if (!ValidateUtils.isPassword(this.oldPassword))
+            throw new HttpException(409, 'Password is invalid !')
+        if (!ValidateUtils.isPassword(this.newPassword))
+            throw new HttpException(409, 'Password is invalid !')
+    }
+
+    public static fromRequest(request: Request) {
+        const ins = new ChangePasswordRequest()
+        ins.username = request.body.username
+        ins.oldPassword = request.body.oldPassword
+        ins.newPassword = request.body.newPassword
+        ins.validate()
+        return ins
+    }
+}
+
+export class ResetPasswordRequest {
+    public email: string
+
+    public tokenReset: string
+
+    public newPassword: string
+
+    public validate() {
+        if (!ValidateUtils.isPassword(this.newPassword))
+            throw new HttpException(409, 'Password is invalid !')
+    }
+
+    public static fromRequest(request: Request) {
+        const ins = new ResetPasswordRequest()
+        ins.email = request.body.email
+        ins.tokenReset = request.body.tokenReset
+        ins.newPassword = request.body.newPassword
+        ins.validate()
+        return ins
+    }
 }

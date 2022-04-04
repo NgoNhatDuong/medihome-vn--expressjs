@@ -1,55 +1,31 @@
-import { Exclude, Expose, Type } from 'class-transformer'
-
-@Exclude()
 export class ProductListRequest {
-	@Expose()
-	@Type(() => Number)
-	_page?: number
+    _page?: number
 
-	@Expose()
-	@Type(() => Number)
-	_limit?: number
+    _limit?: number
 
-	@Expose()
-	_order?: 'ASC' | 'DESC'
+    _order?: 'ASC' | 'DESC'
 
-	@Expose()
-	_sort?: string
+    _sort?: string
 }
 
-@Exclude()
 export class ProductAddRequest {
-	@Expose()
-	name: string
+    name: string
 
-	@Expose()
-	@Type(() => Number)
-	quantity: number
+    quantity: number
 
-	@Expose()
-	@Type(() => Number)
-	price: number
+    price: number
 
-	@Expose()
-	@Type(() => Date)
-	createdAt: number
+    createdAt: number
 }
 
-@Exclude()
 export class ProductDetailRequest {
-	@Expose()
-	id: number
+    id: number
 }
 
-@Exclude()
 export class ProductUpdateRequest {
-	@Expose()
-	id: number
+    id: number
 
-	@Expose()
-	name: string
+    name: string
 
-	@Expose()
-	@Type(() => Number)
-	price: number
+    price: number
 }

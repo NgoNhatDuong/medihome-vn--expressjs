@@ -1,128 +1,197 @@
 import bcrypt from 'bcrypt'
-import jwt, { JwtPayload } from 'jsonwebtoken'
-import { EntityManager, getCustomRepository, getManager, In } from 'typeorm'
-import TokenRepository from '../../databases/repository/token.repository'
-import UserEntity from '../../databases/entity/user.entity'
+import jwt from 'jsonwebtoken'
+import { EntityManager, In } from 'typeorm'
+import Env from '../../config/env.config'
+import MailerConnection from '../../config/mailer.config'
 import { HttpException } from '../../middleware/error.middleware'
-import config from '../../config'
-import TokensEntity from '../../databases/entity/token.entity'
+import TokenEntity from '../../mysql/entity/token.entity'
+import UserEntity from '../../mysql/entity/user.entity'
+import MyString from '../../utils/string.utils'
+import db from '../../config/typeorm.config'
 
 export default class AuthService {
-	public tokenRepository: TokenRepository
+    async generateToken(manager: EntityManager, user: UserEntity) {
+        const accessToken = jwt.sign({ userId: user.userId }, Env.jwt.accessKey, {
+            expiresIn: Env.jwt.accessTime,
+        })
+        const refreshToken = jwt.sign({ userId: user.userId }, Env.jwt.refreshKey, {
+            expiresIn: Env.jwt.refreshTime,
+        })
+        const createToken = manager.create(TokenEntity, {
+            userId: user.userId,
+            accessToken,
+            refreshToken,
+            expiresIn: new Date(new Date().getTime() + Env.jwt.refreshTime * 1000),
+            status: 'active',
+        })
+        const token = await manager.save(createToken)
+        return token
+    }
 
-	public entityManager: EntityManager
+    async register(username: string, password: string, email: string, phone: string) {
+        const response = await db.manager.transaction(async manager => {
+            const findUser = await manager.findOne(UserEntity, {
+                where: [{ username }, { email }],
+            })
+            if (findUser) throw new HttpException(401, 'Username or Email is already exist')
 
-	constructor() {
-		this.tokenRepository = getCustomRepository(TokenRepository)
-		this.entityManager = getManager()
-	}
+            const hashPassword = await bcrypt.hash(password, 5)
+            const createUser = manager.create(UserEntity, {
+                username,
+                email,
+                phone,
+                password: hashPassword,
+            })
+            const user = await manager.save(createUser)
+            const token = await this.generateToken(manager, user)
 
-	async register(req: { username: string; password: string; email: string; phone: string }) {
-		const response = await getManager().transaction(async entityManager => {
-			const findUser = await entityManager.findOne(UserEntity, { username: req.username })
-			if (findUser) throw new HttpException(401, 'Username is already exist')
+            return {
+                userInfo: user,
+                accessToken: token.accessToken,
+                refreshToken: token.refreshToken,
+            }
+        })
 
-			// create new user
-			const hashPassword = await bcrypt.hash(req.password, 5)
-			const createUser = entityManager.create(UserEntity, {
-				username: req.username,
-				password: hashPassword,
-				email: req.email,
-				phone: req.phone,
-			})
-			const user = await entityManager.save(createUser)
-			const token = await this.generateToken(entityManager, user)
+        return response
+    }
 
-			return {
-				userInfo: user,
-				accessToken: token.accessToken,
-				refreshToken: token.refreshToken,
-			}
-		})
+    async login(username: string, password: string) {
+        const user = await db.manager.findOneBy(UserEntity, { username })
 
-		return response
-	}
+        if (!user) throw new HttpException(404, 'Username is not exist')
 
-	async login({ username, password }) {
-		const user = await this.entityManager.findOne(UserEntity, { username })
-		if (!user) throw new HttpException(404, 'Username is not exist')
+        const checkPassword = await bcrypt.compare(password, user.password)
+        if (!checkPassword) throw new HttpException(404, 'Password is incorrect')
 
-		const checkPassword = await bcrypt.compare(password, user.password)
-		if (!checkPassword) throw new HttpException(404, 'Password is incorrect')
+        const token = await this.generateToken(db.manager, user)
+        return {
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            userInfo: user,
+        }
+    }
 
-		const token = await this.generateToken(this.entityManager, user)
-		return {
-			accessToken: token.accessToken,
-			refreshToken: token.refreshToken,
-			userInfo: user,
-		}
-	}
+    async logout(userId: number, accessToken: string) {
+        await db.manager.update(
+            TokenEntity,
+            {
+                userId,
+                accessToken,
+                status: 'active',
+            },
+            { status: 'deactive' },
+        )
+    }
 
-	async logout(accessToken: string, refreshToken?: string[]) {
-		let decoded: JwtPayload
-		try {
-			decoded = jwt.verify(accessToken, config.jwt.accessKey) as JwtPayload
-		} catch (e) {
-			throw new HttpException(401, 'Token is invalid')
-		}
+    async kickout(userId: number, refreshToken: string[]) {
+        let conditions: Record<string, unknown> = {}
+        if (refreshToken.length > 0) {
+            conditions = { refreshToken: In(refreshToken) }
+        }
 
-		let conditions: Record<string, unknown> = {}
-		if (!refreshToken) {
-			conditions = { accessToken }
-		} else if (refreshToken.length === 0) {
-			conditions = {}
-		} else if (refreshToken.length > 0) {
-			conditions = { refreshToken: In(refreshToken) }
-		}
+        await db.manager.update(
+            TokenEntity,
+            {
+                userId,
+                ...conditions,
+                status: 'active',
+            },
+            { status: 'deactive' },
+        )
+    }
 
-		await this.entityManager.update(
-			TokensEntity,
-			{
-				userId: decoded.userId,
-				...conditions,
-				status: 'active',
-			},
-			{ status: 'deactive' },
-		)
-	}
+    async refreshToken(userId: number, refreshToken: string) {
+        const findToken = await db.manager.findOneBy(TokenEntity, {
+            refreshToken,
+            status: 'active',
+        })
+        if (!findToken) throw new HttpException(404, 'Token is deactive')
 
-	async refreshToken(refreshToken: string) {
-		let decoded: JwtPayload
-		try {
-			decoded = jwt.verify(refreshToken, config.jwt.refreshKey) as JwtPayload
-		} catch (e) {
-			throw new HttpException(401, 'Token is invalid')
-		}
+        findToken.accessToken = jwt.sign({ userId }, Env.jwt.accessKey, {
+            expiresIn: Env.jwt.accessTime,
+        })
+        const token = await db.manager.save(findToken)
 
-		const findToken = await this.entityManager.findOne(TokensEntity, {
-			refreshToken,
-			status: 'active',
-		})
-		if (!findToken) throw new HttpException(404, 'Token is deactive')
+        return token.accessToken
+    }
 
-		findToken.accessToken = jwt.sign({ userId: decoded.userId }, config.jwt.accessKey, {
-			expiresIn: config.jwt.accessTime,
-		})
-		const token = await this.entityManager.save(findToken)
+    async changePassword(username: string, oldPassword: string, newPassword: string) {
+        const user = await db.manager.findOneBy(UserEntity, { username })
+        if (!user) throw new HttpException(404, 'Username is not exist')
 
-		return token.accessToken
-	}
+        const checkPassword = await bcrypt.compare(oldPassword, user.password)
+        if (!checkPassword) throw new HttpException(404, 'Password is incorrect')
 
-	async generateToken(entityManager: EntityManager, user: UserEntity) {
-		const accessToken = jwt.sign({ userId: user.userId }, config.jwt.accessKey, {
-			expiresIn: config.jwt.accessTime,
-		})
-		const refreshToken = jwt.sign({ userId: user.userId }, config.jwt.refreshKey, {
-			expiresIn: config.jwt.refreshTime,
-		})
-		const createToken = entityManager.create(TokensEntity, {
-			user,
-			accessToken,
-			refreshToken,
-			expiresIn: new Date(new Date().getTime() + config.jwt.refreshTime * 1000),
-			status: 'active',
-		})
-		const token = await entityManager.save(createToken)
-		return token
-	}
+        user.password = await bcrypt.hash(newPassword, 5)
+
+        await db.manager.save(user)
+
+        // sau khi đổi mật khẩu cần kickout tất cả các nơi đã đăng nhập, sau đó tạo token mới
+        await this.kickout(user.userId, [])
+        const token = await this.generateToken(db.manager, user)
+        return {
+            userInfo: user,
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+        }
+    }
+
+    async forgotPassword(email: string) {
+        const user = await db.manager.findOneBy(UserEntity, { email })
+        if (!user) throw new HttpException(404, 'Email is not exist')
+
+        const randomString = MyString.randomString(10)
+        const encriptString = MyString.encript(randomString, user.username)
+        const expiresIn = new Date(new Date().getTime() + 60 * 60 * 1000)
+
+        const ftoken = db.manager.create(TokenEntity, {
+            userId: user.userId,
+            forgotToken: encriptString,
+            expiresIn,
+            status: 'forgot',
+        })
+
+        await db.manager.save(ftoken)
+
+        await MailerConnection.transporter.sendMail({
+            from: Env.email.username,
+            to: email,
+            subject: 'Medihome - Reset Password',
+            html: ` <p>Your username: ${user.username}</p>
+                    <a href="https://medihome.vn/reset-password?email=${email}&token=${randomString}">
+                        Click here to reset Password !!!
+                    </a>
+                    `,
+        })
+    }
+
+    async resetPassword(email: string, tokenReset: string, newPassword: string) {
+        const user = await db.manager.findOneBy(UserEntity, { email })
+        if (!user) throw new HttpException(404, 'Email is not exist')
+
+        const encriptString = MyString.encript(tokenReset, user.username)
+        const ftoken = await db.manager.findOneBy(TokenEntity, {
+            userId: user.userId,
+            forgotToken: encriptString,
+            status: 'forgot',
+        })
+        if (!ftoken) throw new HttpException(404, 'Token is invalid')
+
+        if (ftoken.expiresIn.getTime() < new Date().getTime()) {
+            throw new HttpException(404, 'Token has expired')
+        }
+
+        user.password = await bcrypt.hash(newPassword, 5)
+        ftoken.status = 'deactive'
+        await db.manager.save([user, ftoken])
+
+        // sau khi đổi mật khẩu cần kickout tất cả các nơi đã đăng nhập, sau đó tạo token mới
+        await this.kickout(user.userId, [])
+        const token = await this.generateToken(db.manager, user)
+        return {
+            userInfo: user,
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+        }
+    }
 }

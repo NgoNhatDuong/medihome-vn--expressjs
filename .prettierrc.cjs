@@ -1,5 +1,5 @@
 module.exports = {
-	useTabs: true,
+	useTabs: false,
 	tabWidth: 4,
 	endOfLine: 'lf',
 	semi: false, // dấu ; cuối dòng
@@ -10,4 +10,4 @@ module.exports = {
 	arrowParens: 'avoid', // arrowfunction dạng: a => {} thay vì (a)=>{}
 	quoteProps: 'as-needed', // Bỏ dấu ngoặc đơn ở key của Object
 	htmlWhitespaceSensitivity: 'ignore', // <a></a> không cho xuống dòng ngu ngu dạng <a></a  \n >
-};
+}
