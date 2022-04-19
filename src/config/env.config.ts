@@ -1,22 +1,32 @@
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env.prod') })
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true })
+dotenv.config()
+if (process.env.NODE_ENV === 'LOCAL') {
+    dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: true })
+}
 
 const Env = {
-    nodeEnv: 'LOCAL',
+    nodeEnv: process.env.NODE_ENV,
     server: {
         PORT: Number(process.env.PORT) || 3000,
+        HOST: '127.0.0.1',
     },
-    typeOrm: {
-        type: 'mysql',
+    mySql: {
         host: process.env.MYSQL_HOST,
         port: Number(process.env.MYSQL_PORT),
         database: process.env.MYSQL_DATABASE,
         username: process.env.MYSQL_USERNAME,
         password: process.env.MYSQL_PASSWORD || '',
-        entities: ['dist/mysql/entity/*.js'],
+    },
+
+    mongoDB: {
+        endPoint: process.env.MONGODB_ENDPOINT,
+        host: process.env.MONGODB_HOST,
+        port: Number(process.env.MONGODB_PORT),
+        database: process.env.MONGODB_DATABASE,
+        username: process.env.MONGODB_USERNAME,
+        password: process.env.MONGODB_PASSWORD || '',
     },
 
     email: {

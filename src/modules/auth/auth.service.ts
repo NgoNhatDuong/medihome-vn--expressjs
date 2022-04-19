@@ -3,11 +3,11 @@ import jwt from 'jsonwebtoken'
 import { EntityManager, In } from 'typeorm'
 import Env from '../../config/env.config'
 import MailerConnection from '../../config/mailer.config'
-import { HttpException } from '../../middleware/error.middleware'
 import TokenEntity from '../../mysql/entity/token.entity'
 import UserEntity from '../../mysql/entity/user.entity'
 import MyString from '../../utils/string.utils'
-import db from '../../config/typeorm.config'
+import { MySqlSource as db } from '../../config/typeorm.config'
+import ErrorUtils from '../../utils/error.utils'
 
 export default class AuthService {
     async generateToken(manager: EntityManager, user: UserEntity) {
@@ -33,7 +33,8 @@ export default class AuthService {
             const findUser = await manager.findOne(UserEntity, {
                 where: [{ username }, { email }],
             })
-            if (findUser) throw new HttpException(401, 'Username or Email is already exist')
+            if (findUser)
+                throw new ErrorUtils(401, 'ACCOUNT_EXIST', 'Username or Email is already exist')
 
             const hashPassword = await bcrypt.hash(password, 5)
             const createUser = manager.create(UserEntity, {
@@ -58,10 +59,10 @@ export default class AuthService {
     async login(username: string, password: string) {
         const user = await db.manager.findOneBy(UserEntity, { username })
 
-        if (!user) throw new HttpException(404, 'Username is not exist')
+        if (!user) throw new ErrorUtils(404, 'ACCOUNT_EXIST', 'Username is already exist')
 
         const checkPassword = await bcrypt.compare(password, user.password)
-        if (!checkPassword) throw new HttpException(404, 'Password is incorrect')
+        if (!checkPassword) throw new ErrorUtils(404, 'ACCOUNT_EXIST', 'Password is incorrect')
 
         const token = await this.generateToken(db.manager, user)
         return {
@@ -105,7 +106,7 @@ export default class AuthService {
             refreshToken,
             status: 'active',
         })
-        if (!findToken) throw new HttpException(404, 'Token is deactive')
+        if (!findToken) throw new ErrorUtils(404, 'TOKEN_INVALID', 'Token is deactive')
 
         findToken.accessToken = jwt.sign({ userId }, Env.jwt.accessKey, {
             expiresIn: Env.jwt.accessTime,
@@ -117,10 +118,10 @@ export default class AuthService {
 
     async changePassword(username: string, oldPassword: string, newPassword: string) {
         const user = await db.manager.findOneBy(UserEntity, { username })
-        if (!user) throw new HttpException(404, 'Username is not exist')
+        if (!user) throw new ErrorUtils(404, 'ACCOUNT_INVALID', 'Username is not exist')
 
         const checkPassword = await bcrypt.compare(oldPassword, user.password)
-        if (!checkPassword) throw new HttpException(404, 'Password is incorrect')
+        if (!checkPassword) throw new ErrorUtils(404, 'ACCOUNT_INVALID', 'Password is incorrect')
 
         user.password = await bcrypt.hash(newPassword, 5)
 
@@ -138,7 +139,7 @@ export default class AuthService {
 
     async forgotPassword(email: string) {
         const user = await db.manager.findOneBy(UserEntity, { email })
-        if (!user) throw new HttpException(404, 'Email is not exist')
+        if (!user) throw new ErrorUtils(404, 'ACCOUNT_INVALID', 'Email is not exist')
 
         const randomString = MyString.randomString(10)
         const encriptString = MyString.encript(randomString, user.username)
@@ -167,7 +168,7 @@ export default class AuthService {
 
     async resetPassword(email: string, tokenReset: string, newPassword: string) {
         const user = await db.manager.findOneBy(UserEntity, { email })
-        if (!user) throw new HttpException(404, 'Email is not exist')
+        if (!user) throw new ErrorUtils(404, 'ACCOUNT_INVALID', 'Email is not exist')
 
         const encriptString = MyString.encript(tokenReset, user.username)
         const ftoken = await db.manager.findOneBy(TokenEntity, {
@@ -175,10 +176,10 @@ export default class AuthService {
             forgotToken: encriptString,
             status: 'forgot',
         })
-        if (!ftoken) throw new HttpException(404, 'Token is invalid')
+        if (!ftoken) throw new ErrorUtils(404, 'TOKEN_INVALID', 'Token is invalid')
 
         if (ftoken.expiresIn.getTime() < new Date().getTime()) {
-            throw new HttpException(404, 'Token has expired')
+            throw new ErrorUtils(404, 'TOKEN_INVALID', 'Token has expired')
         }
 
         user.password = await bcrypt.hash(newPassword, 5)

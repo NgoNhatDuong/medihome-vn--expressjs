@@ -1,9 +1,10 @@
 import 'reflect-metadata'
 
-import App from './app'
+import Server from './server'
 import Env from './config/env.config'
 import MailerConfig from './config/mailer.config'
-import MySqlDataSource from './config/typeorm.config'
+import { MySqlSource, MongoDBSource } from './config/typeorm.config'
+import ErrorUtils from './utils/error.utils'
 import Logger from './utils/logger.utils'
 
 Logger.config({
@@ -16,16 +17,29 @@ Logger.config({
 
 const start = async () => {
     try {
-        await MySqlDataSource.initialize()
-        Logger.info(`🚀 MySQL listening at:: ${Env.typeOrm.host}`)
-        await MailerConfig.initialize()
-        Logger.info(`🚀 Email listening at:: ${Env.email.username}`)
-
-        const app = new App()
-        app.initialize()
+        await MySqlSource.initialize()
+        Logger.info(`🚀 MySQL listening at: ${Env.mySql.host}`)
     } catch (error) {
-        Logger.error(`Connect faild: ${error.toString()}`)
+        Logger.error(new ErrorUtils(500, 'MYSQL_CONNECT_FAIL', error.message))
     }
+    try {
+        await MongoDBSource.initialize()
+        Logger.info(`🚀 MongoDB listening at: ${Env.mongoDB.endPoint}`)
+    } catch (error) {
+        Logger.error(new ErrorUtils(500, 'MONGODB_CONNECT_FAIL', error.message))
+    }
+    try {
+        await MailerConfig.initialize()
+        Logger.info(`🚀 Email listening at: ${Env.email.username}`)
+    } catch (error) {
+        Logger.error(new ErrorUtils(500, 'EMAIL_CONNECT_FAIL', error.message))
+    }
+
+    const server = new Server(Env.server.PORT)
+    server.initialize()
+    server.app.listen(Env.server.PORT, () => {
+        Logger.info(`🚀 Server listening at: http://${Env.server.HOST}:${Env.server.PORT}`)
+    })
 }
 
 start()

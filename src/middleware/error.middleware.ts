@@ -1,26 +1,16 @@
 import { NextFunction, Request, Response } from 'express'
-
-export class HttpException extends Error {
-    public status: number
-
-    public message: string
-
-    constructor(status?: number, message?: string) {
-        super(message)
-        this.status = status
-        this.message = message
-    }
-}
+import ErrorUtils from '../utils/error.utils'
 
 export const errorMiddleware = (
-    err: HttpException,
+    err: ErrorUtils,
     req: Request,
     res: Response,
     next: NextFunction,
 ) => {
-    const status = err.status || 500
+    const statusCode = err.statusCode || 500
+    const errorCode = err.errorCode || 'SERVER_ERROR'
     const message = err.message || 'Some thing when wrong'
-    res.status(status).json({ message })
+    res.status(statusCode).json({ errorCode, message })
 }
 
 // HTTP status code

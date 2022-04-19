@@ -1,18 +1,28 @@
 import { DataSource } from 'typeorm'
 import Env from './env.config'
 
-const { host, port, username, password, database, entities } = Env.typeOrm
-
-const MySqlDataSource = new DataSource({
+const MySqlSource = new DataSource({
     type: 'mysql',
-    host,
-    port,
-    username,
-    password,
-    database,
-    entities,
+    host: Env.mySql.host,
+    port: Env.mySql.port,
+    database: Env.mySql.database,
+    username: Env.mySql.username,
+    password: Env.mySql.password,
+    entities: ['dist/mysql/entity/*.js'],
     synchronize: false,
     logging: true,
 })
 
-export default MySqlDataSource
+const MongoDBSource = new DataSource({
+    type: 'mongodb',
+    host: Env.mongoDB.host,
+    port: Env.mongoDB.port,
+    database: Env.mongoDB.database,
+    username: Env.mongoDB.username,
+    password: Env.mongoDB.password,
+    entities: ['dist/mongodb/entity/*.js'],
+    synchronize: false,
+    logging: true,
+})
+
+export { MySqlSource, MongoDBSource }

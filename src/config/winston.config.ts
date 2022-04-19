@@ -5,8 +5,8 @@ import 'winston-daily-rotate-file'
 const customPrint = {
     basic: (info: any) => `[${info.timestamp}] [${info.level}]: ${info.message}`,
     color: (info: any) =>
-        `${Logger.color[info.level]}[${info.timestamp}] [${info.level.toUpperCase()}]:` +
-        `${Logger.color.reset} ${info.message}`,
+        `${Logger.colorize[info.level]}[${info.timestamp}] [${info.level.toUpperCase()}]:` +
+        `${Logger.colorize.reset} ${info.message}`,
 }
 
 const WinstonLogger = createLogger({

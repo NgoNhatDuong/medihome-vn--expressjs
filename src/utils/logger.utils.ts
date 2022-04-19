@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import ErrorUtils from './error.utils'
 import TimeUtils from './time.utils'
 
 interface LoggerOption {
@@ -25,7 +26,7 @@ class LoggerUtils {
 
     private writeStream: fs.WriteStream
 
-    public readonly color = {
+    public readonly colorize = {
         reset: '\x1b[0m',
         bold: '\x1b[1m',
         italic: '\x1b[3m',
@@ -60,25 +61,41 @@ class LoggerUtils {
 
     public info = (message: any): void => this.init(message, 'info')
 
+    public notify = (message: any): void => this.init(message, 'notify')
+
     public warn = (message: any): void => this.init(message, 'warn')
 
-    public error = (message: any): void => this.init(message, 'error')
+    public error = (e: ErrorUtils): void => {
+        const time = TimeUtils.timeToText(new Date(), this.timePattern)
+        const { reset } = this.colorize
+        const color = this.colorize.red // change color here
+        const stack = this.formatStack(e.stack)
+
+        if (this.hasConsole) {
+            const labelColor = `${color}[${time}] [ERROR]: StatusCode ${e.statusCode}, ErrorCode ${e.errorCode}${reset}`
+            console.error(labelColor, `\n${stack}`)
+        }
+        if (this.hasFile) {
+            const labelBasic = `[${time}] [ERROR]: StatusCode ${e.statusCode}, ErrorCode ${e.errorCode}`
+            this.writeFile(labelBasic, `\n${stack}`)
+        }
+    }
 
     public fatal = (message: any): void => this.init(message, 'fatal')
 
-    private init = (message: any, type: 'info' | 'warn' | 'error' | 'fatal'): void => {
+    private init = (message: any, type: 'info' | 'notify' | 'warn' | 'fatal'): void => {
         const time = TimeUtils.timeToText(new Date(), this.timePattern)
-        const { bold, reset } = this.color
+        const { bold, reset } = this.colorize
 
         let color: string
-        if (type === 'info') color = this.color.green
-        if (type === 'warn') color = this.color.yellow
-        if (type === 'error') color = this.color.red
-        if (type === 'fatal') color = this.color.magenta
+        if (type === 'info') color = this.colorize.blue
+        if (type === 'notify') color = this.colorize.green
+        if (type === 'warn') color = this.colorize.yellow
+        if (type === 'fatal') color = this.colorize.magenta
 
         if (this.hasConsole) {
             const labelColor = `${color}[${time}] ${bold}[${type.toUpperCase()}]:${reset}`
-            console[type](labelColor, message)
+            console.log(labelColor, message)
         }
         if (this.hasFile) {
             const labelBasic = `[${time}] [${type.toUpperCase()}]:`
@@ -102,6 +119,17 @@ class LoggerUtils {
         }
 
         this.writeStream.write(data)
+    }
+
+    private formatStack = (stack: string) => {
+        const lineList = stack.split('\n')
+        let result = lineList[0] || ''
+        for (let i = 1; i < lineList.length; i += 1) {
+            if (/dist|src/.test(lineList[i])) {
+                result += '\n' + lineList[i]
+            }
+        }
+        return result
     }
 }
 

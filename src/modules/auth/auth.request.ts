@@ -1,8 +1,8 @@
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { Request } from 'express'
-import { HttpException } from '../../middleware/error.middleware'
 import Env from '../../config/env.config'
 import ValidateUtils from '../../utils/validate.utils'
+import ErrorUtils from '../../utils/error.utils'
 
 export class RegisterRequest {
     username: string
@@ -21,7 +21,7 @@ export class RegisterRequest {
         if (!ValidateUtils.isPassword(this.password)) message.push('Password is invalid')
 
         if (message.length > 0) {
-            throw new HttpException(409, message.join('. '))
+            throw new ErrorUtils(409, 'VALIDATE_FAIL', message.join('.'))
         }
     }
 
@@ -44,7 +44,7 @@ export class LoginRequest {
 
     public validate(): void {
         if (!ValidateUtils.isPassword(this.password))
-            throw new HttpException(409, 'Password is invalid !')
+            throw new ErrorUtils(409, 'VALIDATE_FAIL', 'Password is invalid !')
     }
 
     public static fromRequest(request: Request): LoginRequest {
@@ -66,7 +66,7 @@ export class LogoutRequest {
             const decoded = jwt.verify(this.accessToken, Env.jwt.accessKey) as JwtPayload
             this.userId = decoded.userId
         } catch (e) {
-            throw new HttpException(401, 'Token is invalid')
+            throw new ErrorUtils(401, 'TOKEN_VALID', 'Token is invalid')
         }
     }
 
@@ -90,7 +90,7 @@ export class KickoutRequest {
             const decoded = jwt.verify(this.accessToken, Env.jwt.accessKey) as JwtPayload
             this.userId = decoded.userId
         } catch (e) {
-            throw new HttpException(401, 'Token is invalid')
+            throw new ErrorUtils(401, 'TOKEN_VALID', 'Token is invalid')
         }
     }
 
@@ -113,7 +113,7 @@ export class RefreshTokenRequest {
             const decoded = jwt.verify(this.refreshToken, Env.jwt.refreshKey) as JwtPayload
             this.userId = decoded.userId
         } catch (e) {
-            throw new HttpException(401, 'Token is invalid')
+            throw new ErrorUtils(401, 'TOKEN_VALID', 'Token is invalid')
         }
     }
 
@@ -130,7 +130,7 @@ export class ForgotPasswordRequest {
 
     public validate() {
         if (!ValidateUtils.isGmail(this.email))
-            throw new HttpException(401, 'Email must format: *****@gmail.com !')
+            throw new ErrorUtils(401, 'VALIDATE_FAIL', 'Email must format: *****@gmail.com !')
     }
 
     public static fromRequest(request: Request) {
@@ -150,9 +150,9 @@ export class ChangePasswordRequest {
 
     public validate() {
         if (!ValidateUtils.isPassword(this.oldPassword))
-            throw new HttpException(409, 'Password is invalid !')
+            throw new ErrorUtils(409, 'VALIDATE_FAIL', 'Password is invalid !')
         if (!ValidateUtils.isPassword(this.newPassword))
-            throw new HttpException(409, 'Password is invalid !')
+            throw new ErrorUtils(409, 'VALIDATE_FAIL', 'Password is invalid !')
     }
 
     public static fromRequest(request: Request) {
@@ -174,7 +174,7 @@ export class ResetPasswordRequest {
 
     public validate() {
         if (!ValidateUtils.isPassword(this.newPassword))
-            throw new HttpException(409, 'Password is invalid !')
+            throw new ErrorUtils(409, 'VALIDATE_FAIL', 'Password is invalid !')
     }
 
     public static fromRequest(request: Request) {

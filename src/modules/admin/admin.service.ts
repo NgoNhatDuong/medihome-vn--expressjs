@@ -1,5 +1,5 @@
 import { TokenListRequest, UserListRequest } from './admin.request'
-import db from '../../config/typeorm.config'
+import { MySqlSource } from '../../config/typeorm.config'
 import UserEntity from '../../mysql/entity/user.entity'
 import TokenEntity from '../../mysql/entity/token.entity'
 

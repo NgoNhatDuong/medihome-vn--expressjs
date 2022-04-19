@@ -27,7 +27,4 @@ class ValidateUtils {
 }
 
 export default ValidateUtils
-export const { isUsername } = ValidateUtils
-export const { isGmail } = ValidateUtils
-export const { isPhone } = ValidateUtils
-export const { isPassword } = ValidateUtils
+export const { isUsername, isGmail, isPhone, isPassword } = ValidateUtils
